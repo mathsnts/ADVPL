@@ -1,0 +1,138 @@
+#include 'protheus.ch'
+
+Static EOL := CHR(13) + CHR(10)
+
+User Function Nomedafunção()
+
+    Local cPerg := "" //Nome do campo de perguntas da SX1
+    Local aArea := GetArea()
+
+    ValidPerg(cPerg)
+
+    If !Pergunte(cPerg)
+        MsgStop("Rotina cancelada pelo usuário", "Atenção!!!")
+        Return
+    EndIf
+
+    Processa({||fExcel()}, "Aguarde!", "Gerando Relatório..." )
+	
+	RestArea(aArea)
+Return
+
+/*/{Protheus.doc} fExcel
+Função de criação do corpo do excel e adição de dados
+@type function
+@version 
+@author matheus.oliveira
+@since 01/09/2020
+@return return_type, return_description
+/*/
+Static Function fExcel()
+    
+	Local oExcel := FWMSEXCEL():NEW()
+    Local oAppExcel
+
+    //====================================
+    // Aba 01 Query Principal
+    //====================================
+    Local cAba1 := ""
+    Local cTab1 := ""
+
+    oExcel:AddWorkSheet(cAba1)
+    oExcel:AddTable(cAba1,cTab1)
+
+    oExcel:AddColumn(cAba1,cTab1,"" ,1,1)
+    oExcel:AddColumn(cAba1,cTab1,"" ,1,1)
+    oExcel:AddColumn(cAba1,cTab1,"" ,1,1)
+    oExcel:AddColumn(cAba1,cTab1,"" ,1,1)
+    oExcel:AddColumn(cAba1,cTab1,"" ,1,1)
+    oExcel:AddColumn(cAba1,cTab1,"" ,1,1)
+    oExcel:AddColumn(cAba1,cTab1,"" ,1,1)
+    oExcel:AddColumn(cAba1,cTab1,"" ,1,1)
+    oExcel:AddColumn(cAba1,cTab1,"" ,1,1)
+    oExcel:AddColumn(cAba1,cTab1,"" ,1,1)
+    oExcel:AddColumn(cAba1,cTab1,"" ,1,1)
+
+    fQry01()
+
+    While !_cTMP1->(EOF())
+        oExcel:AddRow(cAba1,cTab1,{_cTMP1->,;
+        _cTMP1->,;
+        _cTMP1->,;
+        _cTMP1->,;
+        _cTMP1->,;
+        _cTMP1->,;
+        _cTMP1->,;
+        _cTMP1->,;
+        _cTMP1->,;
+        _cTMP1->,;
+        _cTMP1->})
+        _cTMP1->(DbSkip())
+    EndDo
+	
+	_cTMP1->(DbCloseArea())
+	
+    //incluí o arquivo na pasta temporaria
+	cArq := GetTempPath() +"\"+"Rel_CONF_IRRF.XLS"
+
+	oExcel:Activate()
+	oExcel:GetXMLFile(cArq)
+
+	oExcelApp := MsExcel():New()    //Abre conexão com Excel
+	oExcelApp:WorkBooks:Open(cArq) //abre uma planilha
+	oExcelApp:SetVisible(.T.)     // visualiza a planilha
+	oExcelApp:Destroy()          //Encerra o processo do gerenciador de tarefas
+	
+
+Return
+
+/*/{Protheus.doc} fQry01
+Query principal onde trará os resultados para preencher o relatório
+@type function
+@version 
+@author matheus.oliveira
+@since 01/09/2020
+@return return_type, return_description
+/*/
+Static Function fQry01()
+
+    Local _cQry1 := ""
+    Local _cTMP1 := ""
+    _cTMP1 := GetNextAlias()
+    _cQry1 += EOL+""
+
+    If Select(_cTMP1) > 0
+        DbSelecArea("_cTMP1")
+        DbCloseArea("_cTMP1")
+    EndIf
+    TCQUERY _cQry1 New Alias "_cTMP1"
+    _cTMP01->(DbGoTop())
+
+    MemoWrite("C:\.sql",_cTMP1)
+
+Return
+Static Function ValidPerg(cPerg)
+
+	Local aArea	:= GetArea()
+	Local aRegs	:= {}
+	Local i,j
+	DbSelectArea("SX1")
+	SX1->(DbSetOrder(1))
+	cPerg := PADR(cPerg,10)
+	
+	//          Grupo Ordem Desc Por     Desc Espa   Desc Ingl  Variavel  Tipo  Tamanho  Decimal  PreSel  GSC  Valid   Var01       Def01     DefSpa01  DefEng01  CNT01  Var02  Def02     DefSpa02  DefEng02  CNT02  Var03  Def03  DefEsp03  DefEng03  CNT03     Var04  Def04  DefEsp04  DefEng04  CNT04  Var05  Def05  DefEsp05  DefEng05  CNT05  F3        PYME  GRPSXG   HELP  PICTURE  IDFIL
+	AAdd(aRegs,{cPerg,"01", ""?,		 "",         "",        "mv_ch1", "C",  06,      00,      0,      "G", "",     "mv_par01", "",       "",       "",       "",    "",    "",       "",       "",       "",    "",    "",    "",       "",       "",       "",    "",    "",       "",       "",    "",    "",    "",       "",       "",    "",       "",   "",      "",   "",      ""   })
+
+	For i:=1 to Len(aRegs)
+		If !dbSeek(PADR(cPerg,10)+aRegs[i,2])
+			RecLock("SX1",.T.)
+			For j:=1 to FCount()
+				If j <= Len(aRegs[i])
+					FieldPut(j,aRegs[i,j])
+				Endif
+			Next
+			MsUnlock()
+		Endif
+	Next
+	RestArea(aArea)
+Return()
